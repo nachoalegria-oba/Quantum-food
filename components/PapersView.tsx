@@ -27,9 +27,10 @@ interface Props {
   onAdd: (paper: Paper) => void;
   onDelete: (id: string) => void;
   onUpdate: (paper: Paper) => void;
+  cloudEnabled?: boolean;
 }
 
-export function PapersView({ papers, onAdd, onDelete, onUpdate }: Props) {
+export function PapersView({ papers, onAdd, onDelete, onUpdate, cloudEnabled = false }: Props) {
   const [drag, setDrag] = useState(false);
   const [filter, setFilter] = useState<FermentationType | 'all'>('all');
   const [processing, setProcessing] = useState(false);
@@ -231,6 +232,12 @@ export function PapersView({ papers, onAdd, onDelete, onUpdate }: Props) {
             </p>
           </>
         )}
+      </div>
+
+      {/* Cloud status */}
+      <div className="flex items-center gap-2 text-[10px]" style={{ color: cloudEnabled ? '#2a7a50' : '#9aaa90' }}>
+        <span>{cloudEnabled ? '☁' : '○'}</span>
+        <span>{cloudEnabled ? 'Papers guardados en la nube · accesibles desde cualquier dispositivo' : 'Almacenamiento local · configura Supabase para guardar en la nube'}</span>
       </div>
 
       {/* Zotero sync + AI analyze */}
