@@ -14,7 +14,7 @@ async function callAnthropic(system: string, messages: Message[], maxTokens: num
       'x-api-key': process.env.ANTHROPIC_API_KEY!,
       'anthropic-version': '2023-06-01',
     },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, system, messages }),
+    body: JSON.stringify({ model: 'claude-opus-4-8', max_tokens: maxTokens, system, messages }),
   });
   const data = await res.json();
   if (!res.ok) throw new Error(data.error?.message ?? `Anthropic ${res.status}`);
