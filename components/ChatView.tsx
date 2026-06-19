@@ -49,9 +49,14 @@ export function ChatView({ papers }: Props) {
 
     const libraryCtx = papers.length > 0
       ? `\n\nBIBLIOTECA CIENTÍFICA (${papers.length} papers):\n` +
-        papers.map(p =>
-          `• ${p.title} (${p.year}, ${p.type}) — Temp: ${p.temperatura_min ?? '?'}-${p.temperatura_max ?? '?'}°C, pH: ${p.pH_min ?? '?'}-${p.pH_max ?? '?'}, ${p.tiempo_min_h ?? '?'}-${p.tiempo_max_h ?? '?'}h — ${p.resultado_principal}`,
-        ).join('\n')
+        papers.map(p => {
+          const params = `Temp: ${p.temperatura_min ?? '?'}-${p.temperatura_max ?? '?'}°C, pH: ${p.pH_min ?? '?'}-${p.pH_max ?? '?'}, ${p.tiempo_min_h ?? '?'}-${p.tiempo_max_h ?? '?'}h`;
+          const micro  = p.microorganismo_clave ? ` · ${p.microorganismo_clave}` : '';
+          const abs    = p.abstract ? `\n  Abstract: ${p.abstract}` : '';
+          const result = `\n  Resultado: ${p.resultado_principal}`;
+          const oba    = p.aplicacion_oba ? `\n  Aplicación Oba★: ${p.aplicacion_oba}` : '';
+          return `• ${p.title} (${p.year}, ${p.type}) — ${params}${micro}${abs}${result}${oba}`;
+        }).join('\n\n')
       : '\n\nSin papers en biblioteca aún.';
 
     try {
