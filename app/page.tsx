@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { Paper, BackendId } from '../types';
 import { PRELOADED_PAPERS } from '../lib/constants';
-import { BACKENDS } from '../lib/quantum-backends';
 import { loadPapersFromStorage, deletePaperFromStorage, savePaperToStorage } from '../lib/storage';
 import { computeCalibration } from '../lib/calibration';
 import { QuantumView } from '../components/QuantumView';
@@ -63,7 +62,6 @@ export default function OrigenesQuantumPage() {
   }
 
   const calibration = computeCalibration(papers);
-  const activeBackends = BACKENDS.filter(b => b.id === 'local' || configuredBackends.has(b.id));
 
   return (
     <div className="min-h-screen flex items-start justify-center py-8 px-4" style={{ background: '#f0ebe3' }}>
@@ -79,11 +77,10 @@ export default function OrigenesQuantumPage() {
               Ørigenes Quantum Platform
             </h1>
             <p className="text-[9px] mt-1 tracking-[0.15em] uppercase" style={{ color: 'rgba(248,244,237,0.35)' }}>
-              Fermentation R&D
-              {calibration
-                ? ` · ${papers.length} papers · calibrado (${calibration.count}p)`
-                : ` · ${papers.length} papers · sin calibrar`}
-              {' · '}8-qubit · {activeBackends.length} backend{activeBackends.length !== 1 ? 's' : ''}
+              Fermentación R&D
+              {papers.length > 0
+                ? ` · ${papers.length} paper${papers.length !== 1 ? 's' : ''}${calibration ? ' · calibrado' : ''}`
+                : ''}
             </p>
           </div>
 
