@@ -33,6 +33,7 @@ export interface Paper {
   savedAt?: number;
   zoteroKey?: string;
   filename?: string;
+  full_text?: string;
 }
 
 export interface QuantumResult {

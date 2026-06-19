@@ -57,17 +57,26 @@ export function PapersView({ papers, onAdd, onDelete, onUpdate, cloudEnabled = f
           role: 'user',
           content: [
             { type: 'document', source: { type: 'base64', media_type: 'application/pdf', data: base64 } },
-            { type: 'text', text: 'Extrae los parámetros de fermentación de este paper.' },
+            { type: 'text', text: 'Extrae todos los datos de este paper incluyendo el texto completo.' },
           ],
         }],
-        800,
+        4000,
       );
-      const parsed: Omit<Paper, 'id' | 'savedAt' | 'filename'> = JSON.parse(text.replace(/```json|```/g, '').trim());
+      const raw = JSON.parse(text.replace(/```json|```/g, '').trim()) as
+        | { metadata: Omit<Paper, 'id' | 'savedAt' | 'filename' | 'full_text'>; full_text: string }
+        | Omit<Paper, 'id' | 'savedAt' | 'filename'>;
+
+      // Support both new format {metadata, full_text} and legacy flat format
+      const isNew = 'metadata' in raw;
+      const metadata = isNew ? raw.metadata : raw;
+      const full_text = isNew ? raw.full_text : undefined;
+
       const paper: Paper = {
-        ...parsed,
+        ...metadata,
         id: `pdf-${Date.now()}`,
         filename: file.name,
         savedAt: Date.now(),
+        ...(full_text ? { full_text } : {}),
       };
       savePaperToStorage(paper);
       onAdd(paper);
@@ -312,6 +321,11 @@ export function PapersView({ papers, onAdd, onDelete, onUpdate, cloudEnabled = f
                     {p.confianza && (
                       <span className="text-[9px]" style={{ color: '#3d9a68' }}>
                         ✓ {(p.confianza * 100).toFixed(0)}%
+                      </span>
+                    )}
+                    {p.full_text && (
+                      <span className="text-[9px] px-1.5 py-0.5 rounded" style={{ background: '#e8f5ee', color: '#0f4a20' }}>
+                        texto completo
                       </span>
                     )}
                     {p.zoteroKey && (

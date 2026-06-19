@@ -139,8 +139,31 @@ export const PRELOADED_PAPERS: Paper[] = [
   },
 ];
 
-export const EXTRACT_SYSTEM_PROMPT = `Eres un científico de fermentación. Analiza el paper y extrae datos experimentales en JSON estricto sin texto adicional ni backticks:
-{"title":string,"year":string,"type":"koji"|"miso"|"kefir"|"kombucha"|"lacto"|"beverage"|"general","temperatura_min":número|null,"temperatura_max":número|null,"pH_min":número|null,"pH_max":número|null,"tiempo_min_h":número|null,"tiempo_max_h":número|null,"concentracion_min":número|null,"concentracion_max":número|null,"inoculacion":"baja"|"media"|"alta"|null,"microorganismo_clave":string|null,"resultado_principal":string,"aplicacion_oba":string,"confianza":número 0-1}`;
+export const EXTRACT_SYSTEM_PROMPT = `Eres un científico de fermentación. Analiza el paper completo y devuelve JSON estricto sin texto adicional ni backticks.
+
+Formato requerido:
+{
+  "metadata": {
+    "title":string,
+    "year":string,
+    "type":"koji"|"miso"|"kefir"|"kombucha"|"lacto"|"beverage"|"general",
+    "temperatura_min":número|null,
+    "temperatura_max":número|null,
+    "pH_min":número|null,
+    "pH_max":número|null,
+    "tiempo_min_h":número|null,
+    "tiempo_max_h":número|null,
+    "concentracion_min":número|null,
+    "concentracion_max":número|null,
+    "inoculacion":"baja"|"media"|"alta"|null,
+    "microorganismo_clave":string|null,
+    "resultado_principal":string,
+    "aplicacion_oba":string,
+    "confianza":número 0-1,
+    "abstract":string
+  },
+  "full_text": "Transcripción fiel y completa del paper. Incluye: introducción, hipótesis, materiales y métodos (condiciones exactas, equipos, protocolos), resultados completos con todos los datos numéricos, tablas transcritas en formato texto, figuras descritas, discusión, conclusiones y referencias bibliográficas. No omitas nada — la precisión científica total es prioritaria."
+}`;
 
 export const BATCH_EXTRACT_SYSTEM_PROMPT = `Eres un científico de fermentación. Recibirás un array JSON de papers (título + abstract).
 Responde ÚNICAMENTE con un JSON array (mismo orden), sin texto adicional ni backticks.
