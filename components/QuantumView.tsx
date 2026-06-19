@@ -3,7 +3,8 @@
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Calibration, Paper, BackendId, JobPhase, QuantumResult } from '../types';
 import { runCircuit, buildQuantumAngles } from '../lib/qsim';
-import { QUANTUM_SYSTEM_PROMPT, QUANTUM_SUGGESTIONS } from '../lib/constants';
+import { QUANTUM_SYSTEM_PROMPT, QUANTUM_SUGGESTIONS, PROTOCOL_SYSTEM_PROMPT } from '../lib/constants';
+import { ProtocolModal } from './ProtocolModal';
 import { N_QUBITS, SHOTS } from '../lib/quantum-backends';
 import { Spinner } from './ui/Spinner';
 import { TypingText } from './ui/TypingText';
@@ -162,6 +163,9 @@ export function QuantumView({ calibration, configuredBackends }: Props) {
   const [error, setError] = useState('');
   const [jobMeta, setJobMeta] = useState<{ jobId: string; provider: string } | null>(null);
   const [queuePosition, setQueuePosition] = useState<number | null>(null);
+  const [showProtocol, setShowProtocol] = useState(false);
+  const [protocolText, setProtocolText] = useState('');
+  const [protocolLoading, setProtocolLoading] = useState(false);
   const pollerRef = useRef<ReturnType<typeof setInterval> | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -182,6 +186,24 @@ export function QuantumView({ calibration, configuredBackends }: Props) {
     }
     setPhase('done');
   }, [calibration]);
+
+  async function generateProtocol() {
+    if (!qData || !claudeResult) return;
+    setShowProtocol(true);
+    setProtocolLoading(true);
+    setProtocolText('');
+    try {
+      const msg =
+        `Consulta original: "${query}"\n\n` +
+        `Parámetros cuánticos: Temp=${qData.probs[0]}%, pH=${qData.probs[1]}%, Tiempo=${qData.probs[2]}%, Conc=${qData.probs[3]}%, Inoculación=${qData.probs[4]}%, Humedad=${qData.probs[5]}%, O₂=${qData.probs[6]}%, T°madura=${qData.probs[7]}%\n\n` +
+        `Recomendaciones previas:\n${claudeResult}`;
+      const text = await callClaude(PROTOCOL_SYSTEM_PROMPT, [{ role: 'user', content: msg }], 900);
+      setProtocolText(text);
+    } catch (e) {
+      setProtocolText('Error generando protocolo: ' + (e as Error).message);
+    }
+    setProtocolLoading(false);
+  }
 
   const startPolling = useCallback((jobId: string, provider: string, q: string) => {
     if (pollerRef.current) clearInterval(pollerRef.current);
@@ -348,14 +370,32 @@ export function QuantumView({ calibration, configuredBackends }: Props) {
           {/* Technical details — hidden by default */}
           <TechDetails qData={qData} backend={backend} />
 
-          <button
-            onClick={() => { setPhase('idle'); setQData(null); setClaudeResult(''); setJobMeta(null); }}
-            className="text-xs border rounded-lg px-4 py-2 transition-all hover:border-[#2a7a50] hover:text-[#2a7a50]"
-            style={{ borderColor: '#cfc0a0', color: '#5a6a58', background: 'transparent' }}
-          >
-            Nuevo experimento →
-          </button>
+          <div className="flex gap-2">
+            <button
+              onClick={generateProtocol}
+              disabled={!claudeResult}
+              className="text-xs font-semibold rounded-xl px-4 py-2 transition-all disabled:opacity-40 disabled:cursor-not-allowed"
+              style={{ background: '#2a7a50', color: '#ffffff' }}
+            >
+              Generar protocolo →
+            </button>
+            <button
+              onClick={() => { setPhase('idle'); setQData(null); setClaudeResult(''); setJobMeta(null); setProtocolText(''); }}
+              className="text-xs border rounded-xl px-4 py-2 transition-all hover:border-[#2a7a50] hover:text-[#2a7a50]"
+              style={{ borderColor: '#cfc0a0', color: '#5a6a58', background: 'transparent' }}
+            >
+              Nuevo experimento
+            </button>
+          </div>
         </div>
+      )}
+
+      {showProtocol && (
+        <ProtocolModal
+          protocol={protocolText}
+          loading={protocolLoading}
+          onClose={() => setShowProtocol(false)}
+        />
       )}
 
       <div ref={bottomRef} />
