@@ -47,11 +47,22 @@ export function ChatView({ papers }: Props) {
     const userMsg: ChatMessage = { role: 'user', content: q };
     setMessages(prev => [...prev, userMsg]);
 
+    const papersWithFull  = papers.filter(p => p.full_text);
+    const papersMetaOnly  = papers.filter(p => !p.full_text);
+
+    const formatPaper = (p: typeof papers[0], includeFull: boolean) => {
+      const params = `Temp: ${p.temperatura_min ?? '?'}-${p.temperatura_max ?? '?'}°C · pH: ${p.pH_min ?? '?'}-${p.pH_max ?? '?'} · Tiempo: ${p.tiempo_min_h ?? '?'}-${p.tiempo_max_h ?? '?'}h · Conc: ${p.concentracion_min ?? '?'}-${p.concentracion_max ?? '?'}%`;
+      const header = `═══ ${p.title} (${p.year} · ${p.type}) ═══\n${params}${p.microorganismo_clave ? `\nMicroorganismo: ${p.microorganismo_clave}` : ''}\nResultado: ${p.resultado_principal}${p.aplicacion_oba ? `\nAplicación Oba★: ${p.aplicacion_oba}` : ''}`;
+      if (includeFull && p.full_text) return `${header}\n\nTEXTO COMPLETO DEL PAPER:\n${p.full_text}`;
+      if (p.abstract)                  return `${header}\n\nAbstract: ${p.abstract}`;
+      return header;
+    };
+
+    const fullCount = papersWithFull.length;
     const libraryCtx = papers.length > 0
-      ? `\n\nBIBLIOTECA CIENTÍFICA (${papers.length} papers):\n` +
-        papers.map(p =>
-          `• ${p.title} (${p.year}, ${p.type}) — Temp: ${p.temperatura_min ?? '?'}-${p.temperatura_max ?? '?'}°C, pH: ${p.pH_min ?? '?'}-${p.pH_max ?? '?'}, ${p.tiempo_min_h ?? '?'}-${p.tiempo_max_h ?? '?'}h — ${p.resultado_principal}`,
-        ).join('\n')
+      ? `\n\nBIBLIOTECA CIENTÍFICA (${papers.length} papers · ${fullCount} con texto completo):\n\n` +
+        [...papersWithFull.map(p => formatPaper(p, true)),
+          ...papersMetaOnly.map(p => formatPaper(p, false))].join('\n\n---\n\n')
       : '\n\nSin papers en biblioteca aún.';
 
     try {

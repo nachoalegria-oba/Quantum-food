@@ -1,25 +1,10 @@
 import { NextRequest, NextResponse } from 'next/server';
 
 // Auto-selects provider based on which env var is present.
-// Priority: Anthropic → Gemini → Groq
+// Priority: Gemini → Groq
 // All return the same shape: { content: [{ text: string }] }
 
 type Message = { role: string; content: string | unknown[] };
-
-async function callAnthropic(system: string, messages: Message[], maxTokens: number) {
-  const res = await fetch('https://api.anthropic.com/v1/messages', {
-    method: 'POST',
-    headers: {
-      'Content-Type': 'application/json',
-      'x-api-key': process.env.ANTHROPIC_API_KEY!,
-      'anthropic-version': '2023-06-01',
-    },
-    body: JSON.stringify({ model: 'claude-sonnet-4-6', max_tokens: maxTokens, system, messages }),
-  });
-  const data = await res.json();
-  if (!res.ok) throw new Error(data.error?.message ?? `Anthropic ${res.status}`);
-  return data.content?.[0]?.text ?? '';
-}
 
 async function callGemini(system: string, messages: Message[], maxTokens: number) {
   const key = process.env.GEMINI_API_KEY!;
@@ -84,19 +69,17 @@ export async function POST(req: NextRequest) {
     maxTokens?: number;
   };
 
-  // Build list of configured providers
+  // Build list of configured providers — priority: Gemini → Groq
   const candidates: Array<{ name: string; fn: () => Promise<string> }> = [];
 
-  if (process.env.ANTHROPIC_API_KEY)
-    candidates.push({ name: 'anthropic', fn: () => callAnthropic(system, messages, maxTokens) });
   if (process.env.GEMINI_API_KEY)
-    candidates.push({ name: 'gemini',    fn: () => callGemini(system, messages, maxTokens) });
+    candidates.push({ name: 'gemini', fn: () => callGemini(system, messages, maxTokens) });
   if (process.env.GROQ_API_KEY)
-    candidates.push({ name: 'groq',      fn: () => callGroq(system, messages, maxTokens) });
+    candidates.push({ name: 'groq',   fn: () => callGroq(system, messages, maxTokens) });
 
   if (candidates.length === 0) {
     return NextResponse.json(
-      { error: 'No hay API key configurada. Añade ANTHROPIC_API_KEY, GEMINI_API_KEY o GROQ_API_KEY en .env.local' },
+      { error: 'No hay API key configurada. Añade GEMINI_API_KEY o GROQ_API_KEY en .env.local' },
       { status: 500 },
     );
   }

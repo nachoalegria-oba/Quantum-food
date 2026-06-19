@@ -3,7 +3,6 @@
 import { useState, useEffect } from 'react';
 import type { Paper, BackendId } from '../types';
 import { PRELOADED_PAPERS } from '../lib/constants';
-import { BACKENDS } from '../lib/quantum-backends';
 import { loadPapersFromStorage, deletePaperFromStorage, savePaperToStorage } from '../lib/storage';
 import { computeCalibration } from '../lib/calibration';
 import { QuantumView } from '../components/QuantumView';
@@ -20,8 +19,6 @@ const TABS: { id: Tab; label: string; icon: string }[] = [
 
 const QUBIT_SPEEDS = [1.5, 1.8, 2.1, 2.4, 2.7];
 
-// Detect which remote backends are configured (env vars present).
-// Called server-side via a lightweight endpoint so the client knows which pills to enable.
 async function fetchConfiguredBackends(): Promise<Set<BackendId>> {
   try {
     const res = await fetch('/api/backends');
@@ -33,37 +30,69 @@ async function fetchConfiguredBackends(): Promise<Set<BackendId>> {
   }
 }
 
+function syncToCloud(paper: Paper) {
+  void fetch('/api/papers', {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify(paper),
+  });
+}
+
+function deleteFromCloud(id: string) {
+  void fetch(`/api/papers?id=${encodeURIComponent(id)}`, { method: 'DELETE' });
+}
+
 export default function OrigenesQuantumPage() {
   const [tab, setTab] = useState<Tab>('quantum');
   const [papers, setPapers] = useState<Paper[]>([]);
   const [loaded, setLoaded] = useState(false);
+  const [cloudEnabled, setCloudEnabled] = useState(false);
   const [configuredBackends, setConfiguredBackends] = useState<Set<BackendId>>(new Set(['local']));
 
   useEffect(() => {
-    const stored = loadPapersFromStorage();
-    const storedTitles = new Set(stored.map(p => p.title.toLowerCase()));
-    const base = PRELOADED_PAPERS.filter(p => !storedTitles.has(p.title.toLowerCase()));
-    setPapers([...base, ...stored]);
-    setLoaded(true);
+    async function loadPapers() {
+      try {
+        const res = await fetch('/api/papers');
+        if (res.ok) {
+          const { papers: cloud, source } = await res.json() as { papers: Paper[]; source: string };
+          if (source === 'supabase') {
+            setCloudEnabled(true);
+            const titles = new Set(cloud.map(p => p.title.toLowerCase()));
+            setPapers([...PRELOADED_PAPERS.filter(p => !titles.has(p.title.toLowerCase())), ...cloud]);
+            setLoaded(true);
+            return;
+          }
+        }
+      } catch { /* fall through to localStorage */ }
+
+      const stored = loadPapersFromStorage();
+      const titles = new Set(stored.map(p => p.title.toLowerCase()));
+      setPapers([...PRELOADED_PAPERS.filter(p => !titles.has(p.title.toLowerCase())), ...stored]);
+      setLoaded(true);
+    }
+
+    loadPapers();
     fetchConfiguredBackends().then(setConfiguredBackends);
   }, []);
 
   function handleAdd(paper: Paper) {
     setPapers(prev => prev.some(p => p.id === paper.id) ? prev : [...prev, paper]);
+    syncToCloud(paper);
   }
 
   function handleDelete(id: string) {
     deletePaperFromStorage(id);
     setPapers(prev => prev.filter(p => p.id !== id));
+    deleteFromCloud(id);
   }
 
   function handleUpdate(paper: Paper) {
     savePaperToStorage(paper);
     setPapers(prev => prev.map(p => p.id === paper.id ? paper : p));
+    syncToCloud(paper);
   }
 
   const calibration = computeCalibration(papers);
-  const activeBackends = BACKENDS.filter(b => b.id === 'local' || configuredBackends.has(b.id));
 
   return (
     <div className="min-h-screen flex items-start justify-center py-8 px-4" style={{ background: '#f0ebe3' }}>
@@ -79,11 +108,11 @@ export default function OrigenesQuantumPage() {
               Ørigenes Quantum Platform
             </h1>
             <p className="text-[9px] mt-1 tracking-[0.15em] uppercase" style={{ color: 'rgba(248,244,237,0.35)' }}>
-              Fermentation R&D
-              {calibration
-                ? ` · ${papers.length} papers · calibrado (${calibration.count}p)`
-                : ` · ${papers.length} papers · sin calibrar`}
-              {' · '}8-qubit · {activeBackends.length} backend{activeBackends.length !== 1 ? 's' : ''}
+              Fermentación R&D
+              {papers.length > 0
+                ? ` · ${papers.length} paper${papers.length !== 1 ? 's' : ''}${calibration ? ' · calibrado' : ''}`
+                : ''}
+              {cloudEnabled ? ' · ☁ nube' : ''}
             </p>
           </div>
 
@@ -151,7 +180,15 @@ export default function OrigenesQuantumPage() {
                   configuredBackends={configuredBackends}
                 />
               )}
-              {tab === 'papers' && <PapersView papers={papers} onAdd={handleAdd} onDelete={handleDelete} onUpdate={handleUpdate} />}
+              {tab === 'papers' && (
+                <PapersView
+                  papers={papers}
+                  onAdd={handleAdd}
+                  onDelete={handleDelete}
+                  onUpdate={handleUpdate}
+                  cloudEnabled={cloudEnabled}
+                />
+              )}
               {tab === 'chat' && <ChatView papers={papers} />}
             </div>
           )}
