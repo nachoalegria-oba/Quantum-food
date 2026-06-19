@@ -1,4 +1,4 @@
-import type { QuantumResult } from '../types';
+import type { QuantumResult, Calibration } from '../types';
 
 type Complex = [number, number];
 type Matrix2x2 = [[Complex, Complex], [Complex, Complex]];
@@ -132,6 +132,41 @@ export function qHashN(query: string, count: number): number[] {
   return Array.from({ length: count }, () => rand() * Math.PI * 2);
 }
 
+// ─── Calibration-aware angle builder ─────────────────────────────────────────
+// Blends paper calibration data into the Layer-2 Ry angles for Q0–Q3.
+// Without calibration falls back to a pure query hash.
+//
+// Physics:  for |0⟩ → H → Ry(θ),  P(|1⟩) = (1 − sin θ) / 2
+// Inverted: θ = arcsin(1 − 2·P)
+// We encode the calibrated mean as P = (mean − min) / (max − min)
+// and blend 72 % calibration + 28 % query-hash so different queries
+// still explore meaningfully different regions of the calibrated space.
+
+function clamp01(x: number): number { return Math.max(0.01, Math.min(0.99, x)); }
+
+function probToAngle(p: number): number {
+  return Math.asin(Math.max(-1, Math.min(1, 1 - 2 * p)));
+}
+
+export function buildQuantumAngles(query: string, calibration: Calibration | null): number[] {
+  const hashAngles = qHashN(query, 3 * N);
+  if (!calibration) return hashAngles;
+
+  const norms = [
+    clamp01((calibration.temp.mean   - calibration.temp.min)   / (calibration.temp.max   - calibration.temp.min   || 1)),
+    clamp01((calibration.pH.mean     - calibration.pH.min)     / (calibration.pH.max     - calibration.pH.min     || 1)),
+    clamp01((calibration.tiempo.mean - calibration.tiempo.min) / (calibration.tiempo.max - calibration.tiempo.min || 1)),
+    clamp01((calibration.conc.mean   - calibration.conc.min)   / (calibration.conc.max   - calibration.conc.min   || 1)),
+  ];
+
+  const WEIGHT = 0.72;
+  const angles = [...hashAngles];
+  for (let i = 0; i < 4; i++) {
+    angles[i] = probToAngle(norms[i]) * WEIGHT + hashAngles[i] * (1 - WEIGHT);
+  }
+  return angles;
+}
+
 // ─── 8-qubit circuit (256 states, 3 rotation layers + T-gate layer) ───────────
 // Qubits → fermentation parameters:
 //   Q0 Temperatura principal  Q1 pH
@@ -142,8 +177,8 @@ export function qHashN(query: string, count: number): number[] {
 const N = 8;
 const SHOTS = 2048;
 
-export function runCircuit(query: string): QuantumResult {
-  const a = qHashN(query, 3 * N);   // 24 independent angles
+export function runCircuit(query: string, calibration: Calibration | null = null): QuantumResult {
+  const a = buildQuantumAngles(query, calibration);
   const sim = new QSim(N);
 
   // Layer 1 — Hadamard superposition

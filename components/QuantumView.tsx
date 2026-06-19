@@ -2,7 +2,7 @@
 
 import { useState, useRef, useEffect, useCallback } from 'react';
 import type { Calibration, Paper, BackendId, JobPhase, QuantumResult } from '../types';
-import { runCircuit, qHashN } from '../lib/qsim';
+import { runCircuit, buildQuantumAngles } from '../lib/qsim';
 import { QUANTUM_SYSTEM_PROMPT, QUANTUM_SUGGESTIONS } from '../lib/constants';
 import { N_QUBITS, SHOTS } from '../lib/quantum-backends';
 import { Spinner } from './ui/Spinner';
@@ -229,7 +229,7 @@ export function QuantumView({ calibration, configuredBackends }: Props) {
     if (backend === 'local') {
       setPhase('running-local');
       await new Promise(r => setTimeout(r, 350));
-      const qr = runCircuit(q);
+      const qr = runCircuit(q, calibration);
       setQData(qr);
       await runClaude(q, qr);
       return;
@@ -237,7 +237,7 @@ export function QuantumView({ calibration, configuredBackends }: Props) {
 
     setPhase('submitting');
     try {
-      const angles = qHashN(q, 3 * N_QUBITS);
+      const angles = buildQuantumAngles(q, calibration);
       const res = await fetch('/api/quantum', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
